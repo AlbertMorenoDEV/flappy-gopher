@@ -9,9 +9,8 @@ import (
 )
 
 type scene struct {
-	time int
 	background *sdl.Texture
-	birds []*sdl.Texture
+	bird *bird
 }
 
 func newScene(render *sdl.Renderer) (*scene, error) {
@@ -20,17 +19,13 @@ func newScene(render *sdl.Renderer) (*scene, error) {
 		return nil, fmt.Errorf("could not load background image: %v", err)
 	}
 
-	var birds []*sdl.Texture
-	for i := 1; i <= 4; i++ {
-		path := fmt.Sprintf("resources/images/bird_frame_%d.png", i)
-		bird, err := img.LoadTexture(render, path)
-		if err != nil {
-			return nil, fmt.Errorf("could not load bird image: %v", err)
-		}
-		birds = append(birds, bird)
+	bird, err := newBird(render)
+	if err != nil {
+		return nil, err
 	}
 
-	return &scene{background: texture, birds: birds}, nil
+
+	return &scene{background: texture, bird: bird}, nil
 }
 
 func (scene *scene) run(ctx context.Context, render *sdl.Renderer) chan error {
@@ -54,19 +49,14 @@ func (scene *scene) run(ctx context.Context, render *sdl.Renderer) chan error {
 }
 
 func (scene *scene) paint(render *sdl.Renderer) error {
-	scene.time++
-
 	render.Clear()
 
 	if err := render.Copy(scene.background, nil, nil); err != nil {
 		return fmt.Errorf("could not copy background: %v", err)
 	}
 
-	rect := &sdl.Rect{X:10, Y:300-43/2, W:50, H:43}
-
-	i := scene.time / 10 % len(scene.birds)
-	if err := render.Copy(scene.birds[i], nil, rect); err != nil {
-		return fmt.Errorf("could not copy bird: %v", err)
+	if err := scene.bird.paint(render); err != nil {
+		return err
 	}
 
 	render.Present()
@@ -76,4 +66,5 @@ func (scene *scene) paint(render *sdl.Renderer) error {
 
 func (scene *scene) destroy() {
 	scene.background.Destroy()
+	scene.bird.destroy()
 }
