@@ -11,6 +11,7 @@ import (
 type scene struct {
 	background *sdl.Texture
 	bird *bird
+	pipe *pipe
 }
 
 func newScene(render *sdl.Renderer) (*scene, error) {
@@ -24,8 +25,12 @@ func newScene(render *sdl.Renderer) (*scene, error) {
 		return nil, err
 	}
 
+	pipe, err := newPipe(render)
+	if err != nil {
+		return nil, err
+	}
 
-	return &scene{background: texture, bird: bird}, nil
+	return &scene{background: texture, bird: bird, pipe: pipe}, nil
 }
 
 func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer) chan error {
@@ -33,7 +38,7 @@ func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer) chan erro
 
 	go func() {
 		defer close(errc)
-		tick := time.Tick(10 * time.Microsecond)
+		tick := time.Tick(10 * time.Millisecond)
 		for {
 			select {
 				case e := <-events:
@@ -41,6 +46,14 @@ func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer) chan erro
 						return
 					}
 				case <-tick:
+					scene.update()
+
+					if scene.bird.isDead() {
+						drawTitle(render, "Game Over")
+						time.Sleep(time.Second)
+						scene.restart()
+					}
+
 					if err := scene.paint(render); err != nil {
 						errc <- err
 					}
@@ -64,6 +77,17 @@ func (scene *scene) handleEvent(event sdl.Event) bool {
 	return false
 }
 
+func (scene *scene) update() {
+	scene.bird.update()
+	scene.pipe.update()
+	scene.bird.touch(scene.pipe)
+}
+
+func (scene *scene) restart() {
+	scene.bird.restart()
+	scene.pipe.restart()
+}
+
 func (scene *scene) paint(render *sdl.Renderer) error {
 	render.Clear()
 
@@ -75,6 +99,10 @@ func (scene *scene) paint(render *sdl.Renderer) error {
 		return err
 	}
 
+	if err := scene.pipe.paint(render); err != nil {
+		return err
+	}
+
 	render.Present()
 
 	return nil
@@ -83,4 +111,5 @@ func (scene *scene) paint(render *sdl.Renderer) error {
 func (scene *scene) destroy() {
 	scene.background.Destroy()
 	scene.bird.destroy()
+	scene.pipe.destroy()
 }

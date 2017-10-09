@@ -4,18 +4,24 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 	"fmt"
 	"github.com/veandco/go-sdl2/img"
+	"sync"
 )
 
 const (
-	gravity = 0.25
-	jumpSpeed = 5
+	gravity = 0.1
+	jumpSpeed = 4
 )
 
 type bird struct {
+	mu sync.RWMutex
+
 	time int
 	textures []*sdl.Texture
 
-	y, speed float64
+	x, y int32
+	w, h int32
+	speed float64
+	dead bool
 }
 
 func newBird(render *sdl.Renderer) (*bird, error) {
@@ -28,19 +34,26 @@ func newBird(render *sdl.Renderer) (*bird, error) {
 		}
 		textures = append(textures, texture)
 	}
-	return &bird{textures: textures, y: 300}, nil
+	return &bird{textures: textures, x: 10, y: 300, w: 50, h: 43}, nil
+}
+
+func (bird *bird) update() {
+	bird.mu.Lock()
+	defer bird.mu.Unlock()
+
+	bird.time++
+	bird.y -= int32(bird.speed)
+	if bird.y < 0 {
+		bird.dead = true
+	}
+	bird.speed += gravity
 }
 
 func (bird *bird) paint(render *sdl.Renderer) error {
-	bird.time++
-	bird.y -= bird.speed
-	if bird.y < 0 {
-		bird.speed = -bird.speed
-		bird.y = 0
-	}
-	bird.speed += gravity
+	bird.mu.RLock()
+	defer bird.mu.RUnlock()
 
-	rect := &sdl.Rect{X:10, Y: (600 - int32(bird.y)) - 43/2, W:50, H:43}
+	rect := &sdl.Rect{X: bird.x, Y: (600 - bird.y) - bird.h/2, W: bird.w, H: bird.h}
 
 	i := bird.time / 10 % len(bird.textures)
 	if err := render.Copy(bird.textures[i], nil, rect); err != nil {
@@ -49,12 +62,60 @@ func (bird *bird) paint(render *sdl.Renderer) error {
 	return nil
 }
 
+func (bird *bird) restart() {
+	bird.mu.Lock()
+	defer bird.mu.Unlock()
+
+	bird.y = 300
+	bird.speed = 0
+	bird.dead = false
+}
+
 func (bird *bird) destroy() {
+	bird.mu.Lock()
+	defer bird.mu.Unlock()
+
 	for _, texture := range bird.textures {{
 		texture.Destroy()
 	}}
 }
 
+func (bird *bird) isDead() bool {
+	bird.mu.RLock()
+	defer bird.mu.RUnlock()
+
+	return bird.dead
+}
+
 func (bird *bird) jump() {
+	bird.mu.Lock()
+	defer bird.mu.Unlock()
+
 	bird.speed = -jumpSpeed
+}
+
+func (bird *bird) touch(pipe *pipe) {
+	bird.mu.Lock()
+	defer bird.mu.Unlock()
+
+	pipe.mu.RLock()
+	defer pipe.mu.RUnlock()
+
+	if pipe.x > bird.x + bird.w { // too far right
+		return
+	}
+
+	if pipe.x + pipe.w < bird.x { // too far left
+		return
+	}
+
+	if !pipe.inverted && pipe.h < bird.y-bird.h/2 { // pipe is too low
+		return
+	}
+
+	if pipe.inverted && 600-pipe.h > bird.y+bird.h/2 { // pipe is too high
+		return
+	}
+
+	bird.dead = true
 }

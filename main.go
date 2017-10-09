@@ -33,7 +33,7 @@ func run() error {
 	}
 	defer window.Destroy()
 
-	if err := drawTitle(render); err != nil {
+	if err := drawTitle(render, "Flappy Gopher"); err != nil {
 		return fmt.Errorf("could not draw title: %v", err)
 	}
 
@@ -58,7 +58,7 @@ func run() error {
 	}
 }
 
-func drawTitle(render *sdl.Renderer) error {
+func drawTitle(render *sdl.Renderer, text string) error {
 	render.Clear()
 
 	font, err := ttf.OpenFont("resources/fonts/Flappy.ttf", 20)
@@ -68,7 +68,7 @@ func drawTitle(render *sdl.Renderer) error {
 	defer font.Close()
 
 	color := sdl.Color{R: 255, G: 100, B: 0, A: 255}
-	surface, err := font.RenderUTF8_Solid("Flappy Gopher", color)
+	surface, err := font.RenderUTF8_Solid(text, color)
 	if err != nil {
 		return fmt.Errorf("could not render title: %v", err)
 	}
