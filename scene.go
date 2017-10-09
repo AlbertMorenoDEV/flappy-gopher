@@ -11,7 +11,7 @@ import (
 type scene struct {
 	background *sdl.Texture
 	bird *bird
-	pipe *pipe
+	pipes *pipes
 }
 
 func newScene(render *sdl.Renderer) (*scene, error) {
@@ -25,12 +25,12 @@ func newScene(render *sdl.Renderer) (*scene, error) {
 		return nil, err
 	}
 
-	pipe, err := newPipe(render)
+	pipes, err := newPipes(render)
 	if err != nil {
 		return nil, err
 	}
 
-	return &scene{background: texture, bird: bird, pipe: pipe}, nil
+	return &scene{background: texture, bird: bird, pipes: pipes}, nil
 }
 
 func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer) chan error {
@@ -79,13 +79,13 @@ func (scene *scene) handleEvent(event sdl.Event) bool {
 
 func (scene *scene) update() {
 	scene.bird.update()
-	scene.pipe.update()
-	scene.bird.touch(scene.pipe)
+	scene.pipes.update()
+	scene.pipes.touch(scene.bird)
 }
 
 func (scene *scene) restart() {
 	scene.bird.restart()
-	scene.pipe.restart()
+	scene.pipes.restart()
 }
 
 func (scene *scene) paint(render *sdl.Renderer) error {
@@ -99,7 +99,7 @@ func (scene *scene) paint(render *sdl.Renderer) error {
 		return err
 	}
 
-	if err := scene.pipe.paint(render); err != nil {
+	if err := scene.pipes.paint(render); err != nil {
 		return err
 	}
 
@@ -111,5 +111,5 @@ func (scene *scene) paint(render *sdl.Renderer) error {
 func (scene *scene) destroy() {
 	scene.background.Destroy()
 	scene.bird.destroy()
-	scene.pipe.destroy()
+	scene.pipes.destroy()
 }

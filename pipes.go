@@ -5,37 +5,120 @@ import (
 	"github.com/veandco/go-sdl2/img"
 	"fmt"
 	"sync"
+	"time"
+	"math/rand"
 )
 
-type pipe struct {
+type pipes struct {
 	mu sync.RWMutex
 
 	texture *sdl.Texture
-
-	x int32
-	h int32
-	w int32
 	speed int32
-	inverted bool
+
+	pipes []*pipe
 }
 
-func newPipe(render *sdl.Renderer) (*pipe, error) {
+func newPipes(render *sdl.Renderer) (*pipes, error) {
 	texture, err := img.LoadTexture(render, "resources/images/pipe.png")
 	if err != nil {
 		return nil, fmt.Errorf("could not load pipe image: %v", err)
 	}
 
-	return &pipe {
+	pipes := &pipes {
 		texture: texture,
-		x: 400,
-		h: 200,
-		w: 50,
-		speed: 1,
-		inverted: true,
-	}, nil
+		speed: 2,
+	}
+
+	go func() {
+		for {
+			pipes.mu.Lock()
+			pipes.pipes = append(pipes.pipes, newPipe())
+			pipes.mu.Unlock()
+			time.Sleep(3 * time.Second)
+		}
+	}()
+
+	return pipes, nil
 }
 
-func (pipe *pipe) paint(render *sdl.Renderer) error {
+func (pipes *pipes) paint(render *sdl.Renderer) error {
+	pipes.mu.RLock()
+	defer pipes.mu.RUnlock()
+
+	for _, pipe := range pipes.pipes {
+		if err := pipe.paint(render, pipes.texture); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (pipes *pipes) touch(bird *bird) {
+	pipes.mu.RLock()
+	defer pipes.mu.RUnlock()
+
+	for _, pipe := range pipes.pipes {
+		pipe.touch(bird)
+	}
+}
+
+func (pipes *pipes) restart() {
+	pipes.mu.Lock()
+	defer pipes.mu.Unlock()
+
+	pipes.pipes = nil
+}
+
+func (pipes *pipes) update() {
+	pipes.mu.RLock()
+	defer pipes.mu.RUnlock()
+
+	var rem []*pipe
+
+	for _, pipe := range pipes.pipes {
+		pipe.mu.RLock()
+		pipe.x -= pipes.speed
+		pipe.mu.RUnlock()
+		if pipe.x+pipe.w > 0 {
+			rem = append(rem, pipe)
+		}
+	}
+}
+
+func (pipes *pipes) destroy() {
+	pipes.mu.Lock()
+	defer pipes.mu.Unlock()
+
+	pipes.texture.Destroy()
+}
+
+type pipe struct {
+	mu sync.RWMutex
+
+	x int32
+	h int32
+	w int32
+	inverted bool
+}
+
+func newPipe() (*pipe) {
+	return &pipe {
+		x: 800,
+		h: 100 + int32(rand.Intn(300)),
+		w: 50,
+		inverted: rand.Float32() > 0.5,
+	}
+}
+
+func (pipe *pipe) touch(bird *bird) {
+	pipe.mu.RLock()
+	defer pipe.mu.RUnlock()
+
+	bird.touch(pipe)
+}
+
+func (pipe *pipe) paint(render *sdl.Renderer, texture *sdl.Texture) error {
 	pipe.mu.RLock()
 	defer pipe.mu.RUnlock()
 
@@ -46,30 +129,9 @@ func (pipe *pipe) paint(render *sdl.Renderer) error {
 		flip = sdl.FLIP_VERTICAL
 	}
 
-	if err := render.CopyEx(pipe.texture, nil, rect, 0, nil, flip); err != nil {
+	if err := render.CopyEx(texture, nil, rect, 0, nil, flip); err != nil {
 		return fmt.Errorf("could not copy pipe: %v", err)
 	}
 
 	return nil
-}
-
-func (pipe *pipe) restart() {
-	pipe.mu.Lock()
-	defer pipe.mu.Unlock()
-
-	pipe.x = 400
-}
-
-func (pipe *pipe) update() {
-	pipe.mu.Lock()
-	defer pipe.mu.Unlock()
-
-	pipe.x -= pipe.speed
-}
-
-func (pipe *pipe) destroy() {
-	pipe.mu.Lock()
-	defer pipe.mu.Unlock()
-
-	pipe.texture.Destroy()
 }
