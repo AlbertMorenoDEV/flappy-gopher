@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 	"github.com/veandco/go-sdl2/ttf"
-	"context"
+	"runtime"
 )
 
 func main() {
@@ -45,10 +45,17 @@ func run() error {
 	}
 	defer scene.destroy()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	time.AfterFunc(5 * time.Second, cancel)
+	events := make(chan sdl.Event)
+	errc := scene.run(events, render)
 
-	return <-scene.run(ctx, render)
+	runtime.LockOSThread()
+	for {
+		select {
+			case events <- sdl.WaitEvent():
+			case err := <-errc:
+				return err
+		}
+	}
 }
 
 func drawTitle(render *sdl.Renderer) error {

@@ -4,8 +4,8 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/img"
 	"fmt"
-	"context"
 	"time"
+	"log"
 )
 
 type scene struct {
@@ -28,16 +28,19 @@ func newScene(render *sdl.Renderer) (*scene, error) {
 	return &scene{background: texture, bird: bird}, nil
 }
 
-func (scene *scene) run(ctx context.Context, render *sdl.Renderer) chan error {
+func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer) chan error {
 	errc := make(chan error)
 
 	go func() {
 		defer close(errc)
-		for range time.Tick(10 * time.Microsecond){
+		tick := time.Tick(10 * time.Microsecond)
+		for {
 			select {
-				case <-ctx.Done():
-					return
-				default:
+				case e := <-events:
+					if done := scene.handleEvent(e); done {
+						return
+					}
+				case <-tick:
 					if err := scene.paint(render); err != nil {
 						errc <- err
 					}
@@ -46,6 +49,19 @@ func (scene *scene) run(ctx context.Context, render *sdl.Renderer) chan error {
 	}()
 
 	return errc
+}
+
+func (scene *scene) handleEvent(event sdl.Event) bool {
+	switch event.(type) {
+		case *sdl.QuitEvent:
+			return true
+		case *sdl.MouseButtonEvent:
+			scene.bird.jump()
+		case *sdl.MouseMotionEvent, *sdl.WindowEvent, *sdl.TouchFingerEvent:
+		default:
+			log.Printf("unkown event %T", event)
+	}
+	return false
 }
 
 func (scene *scene) paint(render *sdl.Renderer) error {
