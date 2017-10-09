@@ -2,6 +2,6 @@
 * Compile for development: go build -i -race
 * Execute: ./flappyGopher
 
-= ToDo =
+**ToDo**
 * Add seconds counter
 * Increase level
