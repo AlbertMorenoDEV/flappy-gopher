@@ -18,7 +18,7 @@ type pipes struct {
 	pipes []*pipe
 }
 
-func newPipes(render *sdl.Renderer) (*pipes, error) {
+func newPipes(render *sdl.Renderer, screen *screen) (*pipes, error) {
 	texture, err := img.LoadTexture(render, "resources/images/pipe.png")
 	if err != nil {
 		return nil, fmt.Errorf("could not load pipe image: %v", err)
@@ -32,7 +32,7 @@ func newPipes(render *sdl.Renderer) (*pipes, error) {
 	go func() {
 		for {
 			pipes.mu.Lock()
-			pipes.pipes = append(pipes.pipes, newPipe())
+			pipes.pipes = append(pipes.pipes, newPipe(screen))
 			pipes.mu.Unlock()
 			time.Sleep(3 * time.Second)
 		}
@@ -41,12 +41,12 @@ func newPipes(render *sdl.Renderer) (*pipes, error) {
 	return pipes, nil
 }
 
-func (pipes *pipes) paint(render *sdl.Renderer) error {
+func (pipes *pipes) paint(render *sdl.Renderer, screen *screen) error {
 	pipes.mu.RLock()
 	defer pipes.mu.RUnlock()
 
 	for _, pipe := range pipes.pipes {
-		if err := pipe.paint(render, pipes.texture); err != nil {
+		if err := pipe.paint(render, pipes.texture, screen); err != nil {
 			return err
 		}
 	}
@@ -54,12 +54,12 @@ func (pipes *pipes) paint(render *sdl.Renderer) error {
 	return nil
 }
 
-func (pipes *pipes) touch(bird *bird) {
+func (pipes *pipes) touch(bird *bird, screen *screen) {
 	pipes.mu.RLock()
 	defer pipes.mu.RUnlock()
 
 	for _, pipe := range pipes.pipes {
-		pipe.touch(bird)
+		pipe.touch(bird, screen)
 	}
 }
 
@@ -102,27 +102,27 @@ type pipe struct {
 	inverted bool
 }
 
-func newPipe() (*pipe) {
+func newPipe(screen *screen) (*pipe) {
 	return &pipe {
-		x: 800,
-		h: 100 + int32(rand.Intn(300)),
+		x: screen.w,
+		h: 100 + int32(rand.Intn(int(screen.h)/2)),
 		w: 50,
 		inverted: rand.Float32() > 0.5,
 	}
 }
 
-func (pipe *pipe) touch(bird *bird) {
+func (pipe *pipe) touch(bird *bird, screen *screen) {
 	pipe.mu.RLock()
 	defer pipe.mu.RUnlock()
 
-	bird.touch(pipe)
+	bird.touch(pipe, screen)
 }
 
-func (pipe *pipe) paint(render *sdl.Renderer, texture *sdl.Texture) error {
+func (pipe *pipe) paint(render *sdl.Renderer, texture *sdl.Texture, screen *screen) error {
 	pipe.mu.RLock()
 	defer pipe.mu.RUnlock()
 
-	rect := &sdl.Rect{X: pipe.x, Y: 600 - pipe.h, W: pipe.w, H: pipe.h}
+	rect := &sdl.Rect{X: pipe.x, Y: screen.h - pipe.h, W: pipe.w, H: pipe.h}
 	flip := sdl.FLIP_NONE
 	if pipe.inverted {
 		rect.Y = 0

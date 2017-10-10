@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/veandco/go-sdl2/sdl"
-	"fmt"
 	"github.com/veandco/go-sdl2/img"
+	"fmt"
 	"sync"
 )
 
@@ -24,7 +24,7 @@ type bird struct {
 	dead bool
 }
 
-func newBird(render *sdl.Renderer) (*bird, error) {
+func newBird(render *sdl.Renderer, screen *screen) (*bird, error) {
 	var textures []*sdl.Texture
 	for i := 1; i <= 4; i++ {
 		path := fmt.Sprintf("resources/images/bird_frame_%d.png", i)
@@ -34,7 +34,7 @@ func newBird(render *sdl.Renderer) (*bird, error) {
 		}
 		textures = append(textures, texture)
 	}
-	return &bird{textures: textures, x: 10, y: 300, w: 50, h: 43}, nil
+	return &bird{textures: textures, x: 10, y: screen.h/2, w: 50, h: 43}, nil
 }
 
 func (bird *bird) update() {
@@ -49,11 +49,11 @@ func (bird *bird) update() {
 	bird.speed += gravity
 }
 
-func (bird *bird) paint(render *sdl.Renderer) error {
+func (bird *bird) paint(render *sdl.Renderer, screen *screen) error {
 	bird.mu.RLock()
 	defer bird.mu.RUnlock()
 
-	rect := &sdl.Rect{X: bird.x, Y: (600 - bird.y) - bird.h/2, W: bird.w, H: bird.h}
+	rect := &sdl.Rect{X: bird.x, Y: (screen.h - bird.y) - bird.h/2, W: bird.w, H: bird.h}
 
 	i := bird.time / 10 % len(bird.textures)
 	if err := render.Copy(bird.textures[i], nil, rect); err != nil {
@@ -62,11 +62,11 @@ func (bird *bird) paint(render *sdl.Renderer) error {
 	return nil
 }
 
-func (bird *bird) restart() {
+func (bird *bird) restart(screen *screen) {
 	bird.mu.Lock()
 	defer bird.mu.Unlock()
 
-	bird.y = 300
+	bird.y = screen.h/2
 	bird.speed = 0
 	bird.dead = false
 }
@@ -94,7 +94,7 @@ func (bird *bird) jump() {
 	bird.speed = -jumpSpeed
 }
 
-func (bird *bird) touch(pipe *pipe) {
+func (bird *bird) touch(pipe *pipe, screen *screen) {
 	bird.mu.Lock()
 	defer bird.mu.Unlock()
 
@@ -110,7 +110,7 @@ func (bird *bird) touch(pipe *pipe) {
 		return
 	}
 
-	if pipe.inverted && 600-pipe.h > bird.y+bird.h/2 { // pipe is too high
+	if pipe.inverted && screen.h-pipe.h > bird.y+bird.h/2 { // pipe is too high
 		return
 	}
 

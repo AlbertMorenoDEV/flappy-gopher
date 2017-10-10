@@ -14,18 +14,18 @@ type scene struct {
 	pipes *pipes
 }
 
-func newScene(render *sdl.Renderer) (*scene, error) {
+func newScene(render *sdl.Renderer, screen *screen) (*scene, error) {
 	texture, err := img.LoadTexture(render, "resources/images/background.png")
 	if err != nil {
 		return nil, fmt.Errorf("could not load background image: %v", err)
 	}
 
-	bird, err := newBird(render)
+	bird, err := newBird(render, screen)
 	if err != nil {
 		return nil, err
 	}
 
-	pipes, err := newPipes(render)
+	pipes, err := newPipes(render, screen)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func newScene(render *sdl.Renderer) (*scene, error) {
 	return &scene{background: texture, bird: bird, pipes: pipes}, nil
 }
 
-func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer) chan error {
+func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer, screen *screen) chan error {
 	errc := make(chan error)
 
 	go func() {
@@ -46,15 +46,15 @@ func (scene *scene) run(events <-chan sdl.Event, render *sdl.Renderer) chan erro
 						return
 					}
 				case <-tick:
-					scene.update()
+					scene.update(screen)
 
 					if scene.bird.isDead() {
-						drawTitle(render, "Game Over")
+						screen.drawTitle(render, "Game Over")
 						time.Sleep(time.Second)
-						scene.restart()
+						scene.restart(screen)
 					}
 
-					if err := scene.paint(render); err != nil {
+					if err := scene.paint(render, screen); err != nil {
 						errc <- err
 					}
 			}
@@ -77,29 +77,29 @@ func (scene *scene) handleEvent(event sdl.Event) bool {
 	return false
 }
 
-func (scene *scene) update() {
+func (scene *scene) update(screen *screen) {
 	scene.bird.update()
 	scene.pipes.update()
-	scene.pipes.touch(scene.bird)
+	scene.pipes.touch(scene.bird, screen)
 }
 
-func (scene *scene) restart() {
-	scene.bird.restart()
+func (scene *scene) restart(screen *screen) {
+	scene.bird.restart(screen)
 	scene.pipes.restart()
 }
 
-func (scene *scene) paint(render *sdl.Renderer) error {
+func (scene *scene) paint(render *sdl.Renderer, screen *screen) error {
 	render.Clear()
 
 	if err := render.Copy(scene.background, nil, nil); err != nil {
 		return fmt.Errorf("could not copy background: %v", err)
 	}
 
-	if err := scene.bird.paint(render); err != nil {
+	if err := scene.bird.paint(render, screen); err != nil {
 		return err
 	}
 
-	if err := scene.pipes.paint(render); err != nil {
+	if err := scene.pipes.paint(render, screen); err != nil {
 		return err
 	}
 
